@@ -3,7 +3,6 @@ package every
 import (
 	"fmt"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -17,7 +16,7 @@ type Task struct {
 	wg         sync.WaitGroup     // 用于等待任务退出
 }
 
-// NewTask 创建一个新的定时任务
+// 创建一个新的定时任务
 func NewTask(interval string, task func()) (*Task, error) {
 	duration, err := parseDuration(interval)
 	if err != nil {
@@ -32,40 +31,23 @@ func NewTask(interval string, task func()) (*Task, error) {
 	}, nil
 }
 
-// parseDuration 解析时间间隔
+// 解析时间间隔
 func parseDuration(interval string) (time.Duration, error) {
-	var totalDuration time.Duration
-
-	for _, part := range strings.Split(interval, ",") {
-		part = strings.TrimSpace(part)
-		if len(part) == 0 {
-			continue
-		}
-
-		unit := part[len(part)-1]
-		value, err := strconv.Atoi(part[:len(part)-1])
-		if err != nil {
-			return 0, fmt.Errorf("invalid time value: %s", part)
-		}
-
-		switch unit {
-		case 's': // 秒
-			totalDuration += time.Duration(value) * time.Second
-		case 'm': // 分钟
-			totalDuration += time.Duration(value) * time.Minute
-		case 'h': // 小时
-			totalDuration += time.Duration(value) * time.Hour
-		case 'd': // 天
-			totalDuration += time.Duration(value) * 24 * time.Hour
-		default:
-			return 0, fmt.Errorf("unsupported time unit: %c", unit)
-		}
+	unitMap := map[byte]time.Duration{'s': time.Second, 'm': time.Minute, 'h': time.Hour, 'd': 24 * time.Hour}
+	n := len(interval)
+	if n < 2 {
+		return 0, fmt.Errorf("invalid format: %s", interval)
 	}
 
-	return totalDuration, nil
+	value, err := strconv.Atoi(interval[:n-1])
+	if err != nil || unitMap[interval[n-1]] == 0 {
+		return 0, fmt.Errorf("invalid duration: %s", interval)
+	}
+
+	return time.Duration(value) * unitMap[interval[n-1]], nil
 }
 
-// Start 启动定时任务
+// 启动定时任务
 func (t *Task) Start() {
 	t.wg.Add(1)
 	go func() {
@@ -96,13 +78,13 @@ func (t *Task) Start() {
 	}()
 }
 
-// Stop 停止任务
+// 停止任务
 func (t *Task) Stop() {
 	close(t.stopChan)
 	t.wg.Wait()
 }
 
-// UpdateInterval 更新任务间隔时间
+// 更新任务间隔时间
 func (t *Task) UpdateInterval(interval string) error {
 	newDuration, err := parseDuration(interval)
 	if err != nil {
